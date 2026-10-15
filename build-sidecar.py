@@ -1,7 +1,7 @@
 # -*- coding: utf-8 -*-
 """
-Python 后端 Sidecar 构建脚本
-使用 PyInstaller 将 server/main.py 打包为 Tauri 所需的独立二进制文件
+Python Backend Sidecar Builder
+Uses PyInstaller to bundle server/main.py into a standalone binary for Tauri
 """
 
 import os
@@ -9,6 +9,12 @@ import platform
 import subprocess
 import sys
 from pathlib import Path
+
+# Ensure stdout and stderr use UTF-8 on Windows cp1252 consoles
+if hasattr(sys.stdout, "reconfigure"):
+    sys.stdout.reconfigure(encoding="utf-8", errors="replace")
+if hasattr(sys.stderr, "reconfigure"):
+    sys.stderr.reconfigure(encoding="utf-8", errors="replace")
 
 ROOT_DIR = Path(__file__).resolve().parent
 SERVER_MAIN = ROOT_DIR / "server" / "main.py"
@@ -38,7 +44,7 @@ def main():
 
     BINARIES_DIR.mkdir(parents=True, exist_ok=True)
 
-    print(f"=== 开始构建 Sidecar: {output_name}{exe_suffix} ===")
+    print(f"=== Building Sidecar: {output_name}{exe_suffix} ===")
 
     cmd = [
         sys.executable,
@@ -63,12 +69,12 @@ def main():
         str(SERVER_MAIN),
     ]
 
-    print("执行命令:", " ".join(cmd))
+    print("Running command:", " ".join(cmd))
     res = subprocess.run(cmd, check=True)
     if res.returncode == 0:
-        print(f"=== 构建完成: {BINARIES_DIR / (output_name + exe_suffix)} ===")
+        print(f"=== Build successful: {BINARIES_DIR / (output_name + exe_suffix)} ===")
     else:
-        print("=== 构建失败 ===")
+        print("=== Build failed ===")
         sys.exit(res.returncode)
 
 if __name__ == "__main__":

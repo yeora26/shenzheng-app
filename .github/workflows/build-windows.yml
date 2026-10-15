@@ -13,6 +13,9 @@ jobs:
   build:
     name: 构建 Windows 安装包与单文件
     runs-on: windows-latest
+    env:
+      PYTHONIOENCODING: 'utf-8'
+      PYTHONUTF8: '1'
 
     steps:
       - name: 检出代码
