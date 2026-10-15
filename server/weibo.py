@@ -195,8 +195,12 @@ async def weibo_interactive_login() -> str:
             locale='zh-CN',
         )
         page = await context.new_page()
-        # 打开微博扫码与登录页面
-        await page.goto('https://passport.weibo.com/v2/full/login')
+        # 打开微博官方统一扫码与登录页面
+        login_url = 'https://passport.weibo.com/sso/signin?entry=miniblog&source=miniblog&url=https%3A%2F%2Fweibo.com'
+        try:
+            await page.goto(login_url, wait_until='domcontentloaded', timeout=30000)
+        except Exception:
+            await page.goto('https://weibo.com/login.php', wait_until='domcontentloaded', timeout=30000)
 
         waited = 0
         cookie_str = ''
