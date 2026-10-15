@@ -2,12 +2,16 @@
 node_modules/
 dist/
 src-tauri/target/
+src-tauri/binaries/*
+!src-tauri/binaries/.gitkeep
 
 # Python
 .venv/
 .xhs_profile/
 __pycache__/
 *.pyc
+*.spec
+build/
 .env
 
 # OS
