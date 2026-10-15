@@ -37,10 +37,6 @@
           <span>账号昵称或 ID</span>
           <input id="accountInput" type="text" placeholder="例如：travel_lover_2024" />
         </label>
-        <label class="field">
-          <span>抓取条数限制</span>
-          <input id="limitInput" type="number" min="1" max="100" value="20" placeholder="默认20条，最大100条" />
-        </label>
         <div class="actions">
           <button id="btnCrawl" class="btn primary" type="button">爬取</button>
         </div>
@@ -106,21 +102,29 @@
         <input id="cfgModel" type="text" placeholder="deepseek-chat" />
       </label>
       <label class="field">
+        <span>抓取条数限制</span>
+        <input id="cfgLimit" type="number" min="1" max="100" placeholder="默认20条，最大100条" />
+      </label>
+      <label class="field">
         <span>爬虫后端服务地址</span>
         <input id="cfgApiBase" type="text" placeholder="http://127.0.0.1:8000" />
       </label>
-      <label class="field">
-        <span>微博登录 Cookie（可选）</span>
-        <input id="cfgWeiboCookie" type="password" placeholder="若抓取受限可在此粘贴最新 Cookie" autocomplete="off" />
-      </label>
       <div class="field" style="margin-top: 12px;">
-        <span style="font-weight: 500; font-size: 13px; color: var(--text);">小红书登录态</span>
-        <div style="display: flex; gap: 10px; align-items: center; margin-top: 6px;">
-          <button id="btnXhsLogin" class="btn secondary small" type="button">扫码登录 / 更新 Cookie</button>
-          <span id="xhsLoginStatus" class="hint" style="margin: 0; font-size: 12px;">点击后弹出浏览器窗口扫码</span>
+        <div style="display: flex; justify-content: space-between; align-items: center;">
+          <span style="font-weight: 500; font-size: 13px; color: var(--text);">微博登录 Cookie</span>
+          <button id="btnWeiboLogin" class="btn secondary small" type="button" style="padding: 2px 8px; font-size: 12px;">扫码登录（自动获取）</button>
         </div>
+        <input id="cfgWeiboCookie" type="password" placeholder="可点击上方按钮扫码自动提取，也可手动粘贴" autocomplete="off" style="margin-top: 6px;" />
+        <span id="weiboLoginStatus" class="hint" style="margin: 2px 0 0 0; font-size: 12px;"></span>
       </div>
-      <p class="hint" style="margin-top: 14px;">配置均保存在本地，Cookie 过期时随时可在此更新，立即生效。</p>
+      <div class="field" style="margin-top: 12px;">
+        <div style="display: flex; justify-content: space-between; align-items: center;">
+          <span style="font-weight: 500; font-size: 13px; color: var(--text);">小红书登录态</span>
+          <button id="btnXhsLogin" class="btn secondary small" type="button" style="padding: 2px 8px; font-size: 12px;">扫码登录 / 更新</button>
+        </div>
+        <span id="xhsLoginStatus" class="hint" style="margin: 4px 0 0 0; font-size: 12px;">点击后弹出浏览器窗口扫码，自动保存</span>
+      </div>
+      <p class="hint" style="margin-top: 14px;">配置均保存在本地，Cookie 过期时随时可一键扫码更新，立即生效。</p>
       <div class="actions">
         <button id="btnSaveSettings" class="btn primary" type="button">保存</button>
       </div>

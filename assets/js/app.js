@@ -22,10 +22,8 @@ async function crawlAccount() {
     setError('请输入账号昵称或 ID。');
     return;
   }
-  const limitVal = parseInt($('limitInput') ? $('limitInput').value : '20', 10);
-  const limit = Math.min(Math.max(isNaN(limitVal) ? 20 : limitVal, 1), 100);
-
   const cfg = loadConfig();
+  const limit = cfg.limit || 20;
   const apiBase = getApiBase();
 
   show('resultEmpty', false);
@@ -121,17 +119,45 @@ $('btnCrawl').addEventListener('click', crawlAccount);
 $('btnAnalyze').addEventListener('click', goAnalyze);
 bindSettings();
 
+const btnWeibo = $('btnWeiboLogin');
+if (btnWeibo) {
+  btnWeibo.addEventListener('click', async () => {
+    const statusEl = $('weiboLoginStatus');
+    statusEl.textContent = '正在启动微博扫码窗口，请在弹出的浏览器中扫码登录...';
+    statusEl.style.color = '#3b82f6';
+    try {
+      const apiBase = getApiBase();
+      const resp = await fetch(`${apiBase}/api/weibo/login`, { method: 'POST' });
+      const data = await resp.json();
+      if (data.ok && data.cookie) {
+        statusEl.textContent = '登录成功！已自动提取并保存最新微博 Cookie。';
+        statusEl.style.color = '#10b981';
+        if ($('cfgWeiboCookie')) $('cfgWeiboCookie').value = data.cookie;
+        const currentCfg = loadConfig();
+        saveConfig({ ...currentCfg, weiboCookie: data.cookie });
+      } else {
+        statusEl.textContent = data.message || '未检测到登录成功或登录已超时';
+        statusEl.style.color = '#ef4444';
+      }
+    } catch (e) {
+      statusEl.textContent = `启动失败：${e.message}`;
+      statusEl.style.color = '#ef4444';
+    }
+  });
+}
+
 const btnXhs = $('btnXhsLogin');
 if (btnXhs) {
   btnXhs.addEventListener('click', async () => {
     const statusEl = $('xhsLoginStatus');
     statusEl.textContent = '正在启动扫码窗口，请在弹出的浏览器中扫码...';
+    statusEl.style.color = '#3b82f6';
     try {
       const apiBase = getApiBase();
       const resp = await fetch(`${apiBase}/api/xhs/login`, { method: 'POST' });
       const data = await resp.json();
       if (data.ok) {
-        statusEl.textContent = '登录成功！登录凭证已更新。';
+        statusEl.textContent = '登录成功！小红书登录凭证已持久化。';
         statusEl.style.color = '#10b981';
       } else {
         statusEl.textContent = data.message || '登录超时或未完成';

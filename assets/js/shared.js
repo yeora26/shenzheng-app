@@ -6,6 +6,7 @@ const DEFAULT_CONFIG = {
   model: 'deepseek-chat',
   apiBase: 'http://127.0.0.1:8000',
   weiboCookie: '',
+  limit: 20,
 };
 
 const RISK_LEVELS = ['无风险', '轻微', '需说明', '高风险', '一票否决'];
@@ -120,6 +121,7 @@ function openSettings() {
   $('cfgBaseUrl').value = c.baseUrl || '';
   $('cfgApiKey').value = c.apiKey || '';
   $('cfgModel').value = c.model || '';
+  if ($('cfgLimit')) $('cfgLimit').value = c.limit || 20;
   if ($('cfgApiBase')) $('cfgApiBase').value = c.apiBase || 'http://127.0.0.1:8000';
   if ($('cfgWeiboCookie')) $('cfgWeiboCookie').value = c.weiboCookie || '';
   show('settingsModal', true);
@@ -130,10 +132,14 @@ function bindSettings(onSaved) {
   $('btnCloseSettings').addEventListener('click', () => show('settingsModal', false));
   $('modalMask').addEventListener('click', () => show('settingsModal', false));
   $('btnSaveSettings').addEventListener('click', () => {
+    const limitVal = parseInt($('cfgLimit') ? $('cfgLimit').value : '20', 10);
+    const limit = Math.min(Math.max(isNaN(limitVal) ? 20 : limitVal, 1), 100);
+
     saveConfig({
       baseUrl: $('cfgBaseUrl').value.trim(),
       apiKey: $('cfgApiKey').value.trim(),
       model: $('cfgModel').value.trim(),
+      limit: limit,
       apiBase: $('cfgApiBase') ? $('cfgApiBase').value.trim() : 'http://127.0.0.1:8000',
       weiboCookie: $('cfgWeiboCookie') ? $('cfgWeiboCookie').value.trim() : '',
     });

@@ -10,7 +10,7 @@ from fastapi import FastAPI, HTTPException, Query
 from fastapi.middleware.cors import CORSMiddleware
 
 from models import CrawlResponse
-from weibo import CrawlError as WeiboCrawlError, crawl_weibo
+from weibo import CrawlError as WeiboCrawlError, crawl_weibo, weibo_interactive_login
 from xiaohongshu import CrawlError as XhsCrawlError, crawl_xiaohongshu, interactive_login
 
 app = FastAPI(title='政审分析爬虫接口')
@@ -54,6 +54,18 @@ async def xhs_login():
         return {'ok': False, 'message': '未检测到登录成功或登录已超时'}
     except Exception as e:
         raise HTTPException(status_code=500, detail=f'启动扫码窗口失败: {e}') from e
+
+
+@app.post('/api/weibo/login')
+async def weibo_login():
+    """打开浏览器供用户扫码登录微博，自动提取并返回 Cookie"""
+    try:
+        cookie = await weibo_interactive_login()
+        if cookie:
+            return {'ok': True, 'cookie': cookie, 'message': '微博登录成功并已自动提取 Cookie'}
+        return {'ok': False, 'message': '未检测到微博登录成功或登录已超时'}
+    except Exception as e:
+        raise HTTPException(status_code=500, detail=f'启动微博扫码窗口失败: {e}') from e
 
 
 if __name__ == '__main__':

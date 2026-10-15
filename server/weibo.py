@@ -152,3 +152,47 @@ async def crawl_weibo(account: str, limit: int = 20, cookie: str | None = None) 
         account=user.get('screen_name', account),
         posts=posts,
     )
+
+
+async def weibo_interactive_login() -> str:
+    """拉起有头浏览器供用户扫码登录微博，登录成功后自动提取并返回 Cookie 字符串"""
+    import asyncio
+    from playwright.async_api import async_playwright
+
+    async with async_playwright() as p:
+        browser = await p.chromium.launch(headless=False)
+        context = await browser.new_context(
+            user_agent=(
+                'Mozilla/5.0 (Macintosh; Intel Mac OS X 10_15_7) '
+                'AppleWebKit/537.36 (KHTML, like Gecko) Chrome/124.0.0.0 Safari/537.36'
+            ),
+            locale='zh-CN',
+        )
+        page = await context.new_page()
+        # 打开微博扫码与登录页面
+        await page.goto('https://passport.weibo.com/v2/full/login')
+
+        waited = 0
+        cookie_str = ''
+        while waited < 300:
+            await asyncio.sleep(2)
+            waited += 2
+            try:
+                cookies = await context.cookies()
+            except Exception:
+                break
+
+            # 检测是否已经生成了包含登录态的 SUB 凭证
+            sub_cookie = next((c for c in cookies if c.get('name') == 'SUB' and c.get('value')), None)
+            if sub_cookie:
+                parts = []
+                for c in cookies:
+                    domain = c.get('domain', '')
+                    if 'weibo' in domain or 'sina' in domain:
+                        parts.append(f"{c['name']}={c['value']}")
+                cookie_str = '; '.join(parts)
+                break
+
+        await browser.close()
+        return cookie_str
+
