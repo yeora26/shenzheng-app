@@ -283,12 +283,12 @@ class XiaohongshuScraper:
             return False
         return not (("扫码登录" in html) or ("登录后查看更多内容" in html) or ("手机号登录" in html))
 
-    async def login(self):
+    async def login(self) -> bool:
         await self._safe_goto(BASE + "/explore")
         await self._random_delay(1.5, 3.0)
         if await self._is_logged_in():
             LOG.info("检测到已登录，无需重复登录")
-            return
+            return True
         LOG.info("请在弹出的浏览器中扫码或输入手机号登录小红书...")
         waited = 0
         while waited < 300:
@@ -297,10 +297,11 @@ class XiaohongshuScraper:
             try:
                 if await self._is_logged_in():
                     LOG.info("检测到登录成功！")
-                    return
+                    return True
             except Exception:
                 pass
         LOG.warning("等待登录超时")
+        return False
 
     @staticmethod
     def _looks_like_profile_url(text: str) -> bool:
@@ -453,6 +454,16 @@ async def crawl_xiaohongshu(
             account=nick or account,
             posts=posts,
         )
+    finally:
+        await scraper.close()
+
+
+async def interactive_login() -> bool:
+    """拉起有头浏览器供用户扫码登录小红书，自动保存登录态"""
+    scraper = XiaohongshuScraper(headless=False)
+    await scraper.launch()
+    try:
+        return await scraper.login()
     finally:
         await scraper.close()
 

@@ -4,6 +4,8 @@ const DEFAULT_CONFIG = {
   baseUrl: 'https://api.deepseek.com/v1',
   apiKey: '',
   model: 'deepseek-chat',
+  apiBase: 'http://127.0.0.1:8000',
+  weiboCookie: '',
 };
 
 const RISK_LEVELS = ['无风险', '轻微', '需说明', '高风险', '一票否决'];
@@ -115,9 +117,11 @@ function formatPosts(posts) {
 
 function openSettings() {
   const c = loadConfig();
-  $('cfgBaseUrl').value = c.baseUrl;
-  $('cfgApiKey').value = c.apiKey;
-  $('cfgModel').value = c.model;
+  $('cfgBaseUrl').value = c.baseUrl || '';
+  $('cfgApiKey').value = c.apiKey || '';
+  $('cfgModel').value = c.model || '';
+  if ($('cfgApiBase')) $('cfgApiBase').value = c.apiBase || 'http://127.0.0.1:8000';
+  if ($('cfgWeiboCookie')) $('cfgWeiboCookie').value = c.weiboCookie || '';
   show('settingsModal', true);
 }
 
@@ -130,6 +134,8 @@ function bindSettings(onSaved) {
       baseUrl: $('cfgBaseUrl').value.trim(),
       apiKey: $('cfgApiKey').value.trim(),
       model: $('cfgModel').value.trim(),
+      apiBase: $('cfgApiBase') ? $('cfgApiBase').value.trim() : 'http://127.0.0.1:8000',
+      weiboCookie: $('cfgWeiboCookie') ? $('cfgWeiboCookie').value.trim() : '',
     });
     show('settingsModal', false);
     if (onSaved) onSaved();

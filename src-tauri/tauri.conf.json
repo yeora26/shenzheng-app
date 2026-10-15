@@ -24,6 +24,8 @@
   "bundle": {
     "active": true,
     "targets": [
+      "app",
+      "dmg",
       "nsis"
     ],
     "externalBin": [

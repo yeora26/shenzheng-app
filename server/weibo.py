@@ -138,16 +138,15 @@ def _get_cookie() -> str:
     return ''
 
 
-async def crawl_weibo(account: str, limit: int = 20) -> CrawlResponse:
-    cookie = _get_cookie()
-    if not cookie:
+async def crawl_weibo(account: str, limit: int = 20, cookie: str | None = None) -> CrawlResponse:
+    target_cookie = (cookie or '').strip() or _get_cookie()
+    if not target_cookie:
         raise CrawlError(
-            '未配置 WEIBO_COOKIE。微博接口需要登录 Cookie，'
-            '请启动服务前设置：WEIBO_COOKIE="你的Cookie" uv run server/main.py'
+            '未配置微博 Cookie 或已过期。请点击右上角「设置」填入最新有效 Cookie 后重试。'
         )
     async with httpx.AsyncClient(follow_redirects=True) as client:
-        user = await _search_user(client, account, cookie)
-        posts = await _fetch_posts(client, user['id'], limit, cookie)
+        user = await _search_user(client, account, target_cookie)
+        posts = await _fetch_posts(client, user['id'], limit, target_cookie)
     return CrawlResponse(
         platform='微博',
         account=user.get('screen_name', account),

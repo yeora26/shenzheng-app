@@ -10,7 +10,10 @@ function setError(msg) {
   $('errorText').textContent = msg;
 }
 
-const API_BASE = 'http://localhost:8000';
+function getApiBase() {
+  const c = loadConfig();
+  return (c.apiBase || 'http://127.0.0.1:8000').replace(/\/$/, '');
+}
 
 async function crawlAccount() {
   const account = $('accountInput').value.trim();
@@ -19,23 +22,32 @@ async function crawlAccount() {
     setError('请输入账号昵称或 ID。');
     return;
   }
+  const limitVal = parseInt($('limitInput') ? $('limitInput').value : '20', 10);
+  const limit = Math.min(Math.max(isNaN(limitVal) ? 20 : limitVal, 1), 100);
+
+  const cfg = loadConfig();
+  const apiBase = getApiBase();
+
   show('resultEmpty', false);
   show('crawlResult', false);
   show('resultError', false);
   show('crawlLoading', true);
-  $('crawlLoadingText').textContent = `正在爬取 ${currentPlatform} 账号「${account}」的内容…`;
+  $('crawlLoadingText').textContent = `正在爬取 ${currentPlatform} 账号「${account}」（前 ${limit} 条）…`;
 
   try {
-    const resp = await fetch(
-      `${API_BASE}/api/crawl?platform=${encodeURIComponent(currentPlatform)}&account=${encodeURIComponent(account)}&limit=20`
-    );
+    let url = `${apiBase}/api/crawl?platform=${encodeURIComponent(currentPlatform)}&account=${encodeURIComponent(account)}&limit=${limit}`;
+    if (currentPlatform === '微博' && cfg.weiboCookie) {
+      url += `&cookie=${encodeURIComponent(cfg.weiboCookie)}`;
+    }
+
+    const resp = await fetch(url);
     const data = await resp.json();
     if (!resp.ok) throw new Error(data.detail || `HTTP ${resp.status}`);
     crawledPosts = data.posts.map(p => ({ ...p, platform: data.platform, account: data.account }));
     show('crawlLoading', false);
     renderPosts();
   } catch (e) {
-    setError(`爬取失败：${e.message}\n\n请确认爬虫服务已启动：uv run server/main.py`);
+    setError(`爬取失败：${e.message}\n\n如遇 Cookie 过期，请点击右上角「设置」更新 Cookie。`);
   }
 }
 
@@ -108,3 +120,26 @@ document.querySelectorAll('.source-tabs .tab').forEach(btn => {
 $('btnCrawl').addEventListener('click', crawlAccount);
 $('btnAnalyze').addEventListener('click', goAnalyze);
 bindSettings();
+
+const btnXhs = $('btnXhsLogin');
+if (btnXhs) {
+  btnXhs.addEventListener('click', async () => {
+    const statusEl = $('xhsLoginStatus');
+    statusEl.textContent = '正在启动扫码窗口，请在弹出的浏览器中扫码...';
+    try {
+      const apiBase = getApiBase();
+      const resp = await fetch(`${apiBase}/api/xhs/login`, { method: 'POST' });
+      const data = await resp.json();
+      if (data.ok) {
+        statusEl.textContent = '登录成功！登录凭证已更新。';
+        statusEl.style.color = '#10b981';
+      } else {
+        statusEl.textContent = data.message || '登录超时或未完成';
+        statusEl.style.color = '#ef4444';
+      }
+    } catch (e) {
+      statusEl.textContent = `扫码启动失败：${e.message}`;
+      statusEl.style.color = '#ef4444';
+    }
+  });
+}
