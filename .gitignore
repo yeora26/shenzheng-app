@@ -5,6 +5,7 @@ src-tauri/target/
 
 # Python
 .venv/
+.xhs_profile/
 __pycache__/
 *.pyc
 .env

@@ -1,9 +1,17 @@
+import sys
+from pathlib import Path
+
+server_dir = str(Path(__file__).resolve().parent)
+if server_dir not in sys.path:
+    sys.path.insert(0, server_dir)
+
 import uvicorn
 from fastapi import FastAPI, HTTPException, Query
 from fastapi.middleware.cors import CORSMiddleware
 
 from models import CrawlResponse
-from weibo import CrawlError, crawl_weibo
+from weibo import CrawlError as WeiboCrawlError, crawl_weibo
+from xiaohongshu import CrawlError as XhsCrawlError, crawl_xiaohongshu
 
 app = FastAPI(title='政审分析爬虫接口')
 app.add_middleware(
@@ -22,13 +30,15 @@ async def crawl(
     if platform == '微博':
         try:
             return await crawl_weibo(account, limit=limit)
-        except CrawlError as e:
+        except WeiboCrawlError as e:
             raise HTTPException(status_code=404, detail=str(e)) from e
     if platform == '小红书':
-        raise HTTPException(
-            status_code=400,
-            detail='小红书需要登录 Cookie 与请求签名，暂未接入，请先用微博演示',
-        )
+        try:
+            return await crawl_xiaohongshu(account, limit=limit)
+        except XhsCrawlError as e:
+            raise HTTPException(status_code=400, detail=str(e)) from e
+        except Exception as e:
+            raise HTTPException(status_code=500, detail=f"小红书抓取异常: {e}") from e
     raise HTTPException(status_code=400, detail=f'不支持的平台：{platform}')
 
 
