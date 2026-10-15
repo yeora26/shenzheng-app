@@ -5,7 +5,10 @@ from typing import TypedDict
 
 import httpx
 
-from models import CrawlResponse, Post
+try:
+    from models import CrawlResponse, Post
+except ImportError:
+    from server.models import CrawlResponse, Post
 
 BASE_URL = 'https://m.weibo.cn/api/container/getIndex'
 HEADERS = {
