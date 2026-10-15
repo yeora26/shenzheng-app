@@ -160,10 +160,33 @@ async def crawl_weibo(account: str, limit: int = 20, cookie: str | None = None) 
 async def weibo_interactive_login() -> str:
     """拉起有头浏览器供用户扫码登录微博，登录成功后自动提取并返回 Cookie 字符串"""
     import asyncio
+    from pathlib import Path
     from playwright.async_api import async_playwright
 
+    if not os.environ.get('PLAYWRIGHT_BROWSERS_PATH'):
+        home = Path.home()
+        if os.name == 'nt':
+            os.environ['PLAYWRIGHT_BROWSERS_PATH'] = str(home / 'AppData' / 'Local' / 'ms-playwright')
+        elif sys.platform == 'darwin':
+            os.environ['PLAYWRIGHT_BROWSERS_PATH'] = str(home / 'Library' / 'Caches' / 'ms-playwright')
+        else:
+            os.environ['PLAYWRIGHT_BROWSERS_PATH'] = str(home / '.cache' / 'ms-playwright')
+
     async with async_playwright() as p:
-        browser = await p.chromium.launch(headless=False)
+        browser = None
+        for channel in [None, 'chrome', 'msedge']:
+            try:
+                if channel:
+                    browser = await p.chromium.launch(headless=False, channel=channel)
+                else:
+                    browser = await p.chromium.launch(headless=False)
+                break
+            except Exception:
+                continue
+
+        if not browser:
+            raise CrawlError('未能启动浏览器，请确认已安装 Chrome 浏览器或运行过 playwright install chromium')
+
         context = await browser.new_context(
             user_agent=(
                 'Mozilla/5.0 (Macintosh; Intel Mac OS X 10_15_7) '

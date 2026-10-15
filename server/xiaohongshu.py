@@ -229,6 +229,15 @@ class XiaohongshuScraper:
         return datetime.fromtimestamp(ts, tz=CST).strftime("%Y-%m-%d %H:%M:%S")
 
     async def launch(self):
+        if not os.environ.get("PLAYWRIGHT_BROWSERS_PATH"):
+            home = Path.home()
+            if sys.platform == "darwin":
+                os.environ["PLAYWRIGHT_BROWSERS_PATH"] = str(home / "Library" / "Caches" / "ms-playwright")
+            elif sys.platform == "win32":
+                os.environ["PLAYWRIGHT_BROWSERS_PATH"] = str(home / "AppData" / "Local" / "ms-playwright")
+            else:
+                os.environ["PLAYWRIGHT_BROWSERS_PATH"] = str(home / ".cache" / "ms-playwright")
+
         self._pw = await async_playwright().start()
         vp = _random_viewport()
         launch_args = [

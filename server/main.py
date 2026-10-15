@@ -1,5 +1,15 @@
+import os
 import sys
 from pathlib import Path
+
+if not os.environ.get("PLAYWRIGHT_BROWSERS_PATH"):
+    home = Path.home()
+    if sys.platform == "darwin":
+        os.environ["PLAYWRIGHT_BROWSERS_PATH"] = str(home / "Library" / "Caches" / "ms-playwright")
+    elif sys.platform == "win32":
+        os.environ["PLAYWRIGHT_BROWSERS_PATH"] = str(home / "AppData" / "Local" / "ms-playwright")
+    else:
+        os.environ["PLAYWRIGHT_BROWSERS_PATH"] = str(home / ".cache" / "ms-playwright")
 
 server_dir = str(Path(__file__).resolve().parent)
 if server_dir not in sys.path:
