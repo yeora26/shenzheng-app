@@ -1,0 +1,13 @@
+{
+  "name": "shenzheng-app",
+  "version": "0.1.0",
+  "private": true,
+  "description": "前哨人物画像系统",
+  "scripts": {
+    "build": "node build-frontend.js",
+    "tauri": "tauri"
+  },
+  "devDependencies": {
+    "@tauri-apps/cli": "^2.1.0"
+  }
+}

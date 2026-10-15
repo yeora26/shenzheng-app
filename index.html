@@ -1,0 +1,114 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>前哨人物画像系统</title>
+  <link rel="stylesheet" href="assets/css/style.css" />
+  <link rel="stylesheet" href="assets/css/index.css" />
+</head>
+<body>
+  <header class="header">
+    <div class="brand">
+      <img src="assets/logo.png" alt="前哨人物画像系统" style="width: 100px; height: 100px;" class="brand-logo" />
+      <div class="header-text"> 
+        <h1>前哨人物画像系统</h1>
+        <p class="subtitle">社交媒体倾向性分析基础模块</p>
+      </div>
+    </div>
+    <button id="btnSettings" class="icon-btn" type="button" title="大模型配置" aria-label="大模型配置">
+      <svg viewBox="0 0 24 24" width="18" height="18" fill="none" stroke="currentColor"
+        stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round">
+        <circle cx="12" cy="12" r="3"></circle>
+        <path d="M19.4 15a1.65 1.65 0 0 0 .33 1.82l.06.06a2 2 0 1 1-2.83 2.83l-.06-.06a1.65 1.65 0 0 0-1.82-.33 1.65 1.65 0 0 0-1 1.51V21a2 2 0 1 1-4 0v-.09A1.65 1.65 0 0 0 9 19.4a1.65 1.65 0 0 0-1.82.33l-.06.06a2 2 0 1 1-2.83-2.83l.06-.06a1.65 1.65 0 0 0 .33-1.82 1.65 1.65 0 0 0-1.51-1H3a2 2 0 1 1 0-4h.09A1.65 1.65 0 0 0 4.6 9a1.65 1.65 0 0 0-.33-1.82l-.06-.06a2 2 0 1 1 2.83-2.83l.06.06a1.65 1.65 0 0 0 1.82.33H9a1.65 1.65 0 0 0 1-1.51V3a2 2 0 1 1 4 0v.09a1.65 1.65 0 0 0 1 1.51 1.65 1.65 0 0 0 1.82-.33l.06-.06a2 2 0 1 1 2.83 2.83l-.06.06a1.65 1.65 0 0 0-.33 1.82V9a1.65 1.65 0 0 0 1.51 1H21a2 2 0 1 1 0 4h-.09a1.65 1.65 0 0 0-1.51 1z"></path>
+      </svg>
+    </button>
+  </header>
+
+  <main class="layout">
+    <aside class="panel">
+      <section class="card">
+        <h2>账号信息</h2>
+        <div class="source-tabs">
+          <button class="tab active" data-platform="小红书" type="button">小红书</button>
+          <button class="tab" data-platform="微博" type="button">微博</button>
+        </div>
+        <label class="field">
+          <span>账号昵称或 ID</span>
+          <input id="accountInput" type="text" placeholder="例如：travel_lover_2024" />
+        </label>
+        <div class="actions">
+          <button id="btnCrawl" class="btn primary" type="button">爬取</button>
+        </div>
+      </section>
+    </aside>
+
+    <section class="result">
+      <div id="resultEmpty" class="empty">
+        <p>输入账号并点击「爬取」</p>
+        <p class="hint">爬取完成后可对内容发起大模型政审分析</p>
+      </div>
+
+      <div id="crawlLoading" class="empty hidden">
+        <div class="spinner"></div>
+        <p id="crawlLoadingText">正在爬取…</p>
+      </div>
+
+      <div id="resultError" class="empty hidden">
+        <p class="error-text" id="errorText"></p>
+      </div>
+
+      <div id="analyzeLoading" class="empty hidden">
+        <div class="spinner"></div>
+        <p>正在调用大模型分析…</p>
+      </div>
+
+      <div id="crawlResult" class="hidden">
+        <div class="card crawl-card">
+          <div class="crawl-head">
+            <h2 id="crawlTitle">爬取结果</h2>
+            <button id="btnAnalyze" class="btn primary small" type="button">开始分析</button>
+          </div>
+          <ul id="postList" class="post-list"></ul>
+        </div>
+      </div>
+    </section>
+  </main>
+
+  <!-- 设置弹窗 -->
+  <div id="settingsModal" class="modal hidden">
+    <div class="modal-mask" id="modalMask"></div>
+    <div class="modal-card card">
+      <div class="modal-head">
+        <h2>大模型配置</h2>
+        <button id="btnCloseSettings" class="icon-btn" type="button" aria-label="关闭">
+          <svg viewBox="0 0 24 24" width="16" height="16" fill="none" stroke="currentColor"
+            stroke-width="2" stroke-linecap="round">
+            <line x1="18" y1="6" x2="6" y2="18"></line>
+            <line x1="6" y1="6" x2="18" y2="18"></line>
+          </svg>
+        </button>
+      </div>
+      <label class="field">
+        <span>API 地址</span>
+        <input id="cfgBaseUrl" type="text" placeholder="https://api.deepseek.com/v1" />
+      </label>
+      <label class="field">
+        <span>API Key</span>
+        <input id="cfgApiKey" type="password" placeholder="sk-..." autocomplete="off" />
+      </label>
+      <label class="field">
+        <span>模型</span>
+        <input id="cfgModel" type="text" placeholder="deepseek-chat" />
+      </label>
+      <p class="hint">配置保存在浏览器本地，兼容任意 OpenAI 格式接口。</p>
+      <div class="actions">
+        <button id="btnSaveSettings" class="btn primary" type="button">保存</button>
+      </div>
+    </div>
+  </div>
+
+  <script src="assets/js/shared.js"></script>
+  <script src="assets/js/app.js"></script>
+</body>
+</html>

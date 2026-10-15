@@ -1,0 +1,14 @@
+# Node & Tauri
+node_modules/
+dist/
+src-tauri/target/
+
+# Python
+.venv/
+__pycache__/
+*.pyc
+.env
+
+# OS
+.DS_Store
+Thumbs.db
