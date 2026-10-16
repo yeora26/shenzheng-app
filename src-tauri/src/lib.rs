@@ -3,6 +3,7 @@ use tauri_plugin_shell::process::CommandChild;
 use tauri_plugin_shell::ShellExt;
 
 mod login_window;
+mod sidecar_cleanup;
 mod weibo_login;
 mod xhs_crawl;
 mod xhs_login;
@@ -36,6 +37,8 @@ pub fn run() {
       let state = server_state_clone.clone();
 
       tauri::async_runtime::spawn(async move {
+        // 先结束旧版本遗留的后端进程，否则新后端无法占用 8000 端口
+        let _ = tauri::async_runtime::spawn_blocking(sidecar_cleanup::kill_stale_sidecars).await;
         match handle.shell().sidecar("server") {
           Ok(command) => {
             log::info!("正在拉起 Sidecar 后端服务...");

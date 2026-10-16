@@ -1,6 +1,8 @@
 from __future__ import annotations
 
+import os
 import sys
+import threading
 from pathlib import Path
 
 server_dir = str(Path(__file__).resolve().parent)
@@ -40,5 +42,24 @@ async def crawl(
     raise HTTPException(status_code=400, detail=f'不支持的平台：{platform}')
 
 
+def _exit_when_parent_exits() -> None:
+    """作为桌面端 sidecar 运行时，stdin 是连接到主程序的管道；主程序退出（包括被强制结束）时管道关闭，
+    这里读到 EOF 后立即退出，避免后端成为孤儿进程长期占用 8000 端口。"""
+    stdin = sys.stdin
+    if stdin is None or stdin.isatty():
+        return
+
+    def watch() -> None:
+        try:
+            while stdin.buffer.read(1024):
+                pass
+        except Exception:
+            pass
+        os._exit(0)
+
+    threading.Thread(target=watch, daemon=True).start()
+
+
 if __name__ == '__main__':
+    _exit_when_parent_exits()
     uvicorn.run(app, host='127.0.0.1', port=8000)
