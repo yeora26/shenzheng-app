@@ -3,6 +3,7 @@ from __future__ import annotations
 import html
 import os
 import re
+import sys
 from typing import TypedDict
 
 import httpx
