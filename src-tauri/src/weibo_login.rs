@@ -30,12 +30,49 @@ fn is_logged_in_url(url: &Url) -> bool {
     && !path.contains("login")
 }
 
+/// 该接口返回当前会话的登录状态，形如 {"data":{"login":true,...},"ok":1}
+const LOGIN_STATE_URL: &str = "https://m.weibo.cn/api/config";
+const LOGIN_STATE_JS: &str = r#"(() => {
+  const text = (document.body && document.body.innerText) || '';
+  if (!/"login"\s*:/.test(text)) return null;
+  return /"login"\s*:\s*true/.test(text);
+})()"#;
+
+/// 查询窗口中已有的微博会话是否仍然有效；无法判断时返回 None
+async fn existing_session_valid<R: Runtime>(win: &LoginWindow<R>) -> Option<bool> {
+  for _ in 0..8 {
+    sleep(1000).await;
+    if !win.is_open() {
+      return None;
+    }
+    match win.eval_json(LOGIN_STATE_JS).await.as_deref().map(str::trim) {
+      Some("true") => return Some(true),
+      Some("false") => return Some(false),
+      _ => continue,
+    }
+  }
+  None
+}
+
 /// 打开微博扫码窗口，等待用户登录成功后返回 Cookie 字符串
 #[tauri::command]
 pub async fn weibo_login<R: Runtime>(app: AppHandle<R>) -> Result<String, String> {
-  let win = LoginWindow::open(&app, WINDOW_LABEL, "微博扫码登录", LOGIN_URL)?;
+  let win = LoginWindow::open(&app, WINDOW_LABEL, "微博扫码登录", LOGIN_STATE_URL)?;
 
-  // 记录打开窗口前已有的 SUB，避免把失效的旧登录态当作登录成功
+  // 内置 WebView 会保留上次的登录态：若仍然有效，直接提取 Cookie，无需重新扫码
+  if existing_session_valid(&win).await == Some(true) {
+    let cookies = win.cookies(COOKIE_URLS);
+    if sub_value(&cookies).is_some() {
+      win.close();
+      return Ok(join_cookies(&cookies));
+    }
+  }
+  if !win.is_open() {
+    return Err("登录窗口已被关闭，未完成登录".to_string());
+  }
+  win.navigate(LOGIN_URL);
+
+  // 记录此时已有的（已失效的）SUB，避免把旧登录态当作登录成功
   sleep(800).await;
   let initial_sub = sub_value(&win.cookies(COOKIE_URLS));
 

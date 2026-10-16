@@ -4,6 +4,7 @@ use tauri_plugin_shell::ShellExt;
 
 mod login_window;
 mod weibo_login;
+mod xhs_crawl;
 mod xhs_login;
 
 #[derive(Default, Clone)]
@@ -18,7 +19,8 @@ pub fn run() {
     .plugin(tauri_plugin_shell::init())
     .invoke_handler(tauri::generate_handler![
       weibo_login::weibo_login,
-      xhs_login::xhs_login
+      xhs_login::xhs_login,
+      xhs_crawl::xhs_crawl
     ])
     .setup(move |app| {
       if cfg!(debug_assertions) {

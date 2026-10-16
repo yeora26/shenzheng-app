@@ -3,17 +3,14 @@ from __future__ import annotations
 import html
 import os
 import re
-import sys
 from typing import TypedDict
 
 import httpx
 
 try:
     from models import CrawlResponse, Post
-    from browser_helper import launch_resilient_context, get_app_data_dir
 except ImportError:
     from server.models import CrawlResponse, Post
-    from server.browser_helper import launch_resilient_context, get_app_data_dir
 
 BASE_URL = 'https://m.weibo.cn/api/container/getIndex'
 HEADERS = {
@@ -160,119 +157,3 @@ async def crawl_weibo(account: str, limit: int = 20, cookie: str | None = None) 
         account=user.get('screen_name', account),
         posts=posts,
     )
-
-
-async def weibo_interactive_login() -> str:
-    """拉起有头浏览器供用户扫码登录微博，登录成功后自动提取并返回 Cookie 字符串"""
-    import asyncio
-    from playwright.async_api import async_playwright
-
-    weibo_profile_dir = get_app_data_dir("weibo_profile")
-
-    async with async_playwright() as p:
-        try:
-            context = await launch_resilient_context(
-                pw=p,
-                headless=False,
-                user_data_dir=weibo_profile_dir,
-                locale='zh-CN',
-                user_agent=(
-                    'Mozilla/5.0 (Windows NT 10.0; Win64; x64) '
-                    'AppleWebKit/537.36 (KHTML, like Gecko) Chrome/124.0.0.0 Safari/537.36'
-                ),
-            )
-        except Exception as e:
-            raise CrawlError(f"未能拉起微博扫码浏览器窗口: {e}")
-
-        pages = context.pages
-        page = pages[0] if pages else await context.new_page()
-        # 打开微博官方统一扫码与登录页面
-        login_url = 'https://passport.weibo.com/sso/signin?entry=miniblog&source=miniblog&url=https%3A%2F%2Fweibo.com'
-        try:
-            await page.goto(login_url, wait_until='domcontentloaded', timeout=30000)
-        except Exception:
-            await page.goto('https://weibo.com/login.php', wait_until='domcontentloaded', timeout=30000)
-
-        waited = 0
-        cookie_str = ''
-        while waited < 300:
-            await asyncio.sleep(1.0)
-            waited += 1.0
-            try:
-                # 聚合当前上下文与关键域名的所有 Cookie
-                all_cookies = await context.cookies([
-                    'https://weibo.com',
-                    'https://m.weibo.cn',
-                    'https://passport.weibo.com',
-                    'https://sina.com.cn',
-                ])
-                if not all_cookies:
-                    all_cookies = await context.cookies()
-
-                # 检测是否生成了包含登录态的 SUB 核心凭证
-                sub_cookie = next(
-                    (c for c in all_cookies if c.get('name') == 'SUB' and len(c.get('value', '')) > 10),
-                    None
-                )
-
-                cur_url = page.url
-                is_redirected_home = ('weibo.com' in cur_url) and ('signin' not in cur_url) and ('login' not in cur_url)
-
-                if sub_cookie or is_redirected_home:
-                    cookie_map = {}
-                    for c in all_cookies:
-                        name = c.get('name')
-                        val = c.get('value')
-                        domain = c.get('domain', '')
-                        if name and val and ('weibo' in domain or 'sina' in domain or not domain):
-                            cookie_map[name] = val
-
-                    # 尝试从当前页面直接读取 document.cookie 进行补充
-                    try:
-                        doc_cookie = await page.evaluate('document.cookie')
-                        if doc_cookie:
-                            for item in doc_cookie.split(';'):
-                                if '=' in item:
-                                    k, v = item.strip().split('=', 1)
-                                    if k and v and k not in cookie_map:
-                                        cookie_map[k] = v
-                    except Exception:
-                        pass
-
-                    if 'SUB' in cookie_map:
-                        cookie_str = '; '.join([f'{k}={v}' for k, v in cookie_map.items()])
-                        # 在页面上注入提示信息并稍等保存
-                        try:
-                            await page.evaluate("""() => {
-                                const tip = document.createElement('div');
-                                tip.innerText = '微博登录成功！Cookie 提取中，窗口即将自动关闭...';
-                                tip.style.position = 'fixed';
-                                tip.style.top = '24px';
-                                tip.style.left = '50%';
-                                tip.style.transform = 'translateX(-50%)';
-                                tip.style.backgroundColor = '#10b981';
-                                tip.style.color = '#ffffff';
-                                tip.style.padding = '12px 28px';
-                                tip.style.fontSize = '18px';
-                                tip.style.fontWeight = 'bold';
-                                tip.style.borderRadius = '8px';
-                                tip.style.boxShadow = '0 6px 20px rgba(0,0,0,0.2)';
-                                tip.style.zIndex = '9999999';
-                                document.body.appendChild(tip);
-                            }""")
-                        except Exception:
-                            pass
-                        await asyncio.sleep(1.5)
-                        break
-            except Exception:
-                # 若用户在登录完成后关闭了窗口，只要已经提取到 cookie 则直接返回
-                if cookie_str:
-                    break
-                break
-
-        try:
-            await context.close()
-        except Exception:
-            pass
-        return cookie_str
-

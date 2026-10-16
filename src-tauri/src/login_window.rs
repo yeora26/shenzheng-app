@@ -1,5 +1,6 @@
-//! 扫码登录窗口的通用能力：直接用 Tauri 自带的 WebView2（Windows）/ WKWebView（macOS）
-//! 打开平台登录页，无需 Playwright、外部浏览器或 node 驱动，并从 WebView 的 Cookie 存储中读取 Cookie。
+//! 站点窗口的通用能力（扫码登录与小红书抓取共用）：直接用 Tauri 自带的 WebView2（Windows）/
+//! WKWebView（macOS）打开平台页面，无需 Playwright、外部浏览器或 node 驱动；
+//! 可读取 WebView 的 Cookie 存储，并在页面中执行 JS。
 
 use std::collections::BTreeMap;
 use std::sync::Mutex;
@@ -28,13 +29,37 @@ impl<R: Runtime> LoginWindow<R> {
       let _ = existing.set_focus();
       return Err(format!("{title}窗口已打开，请在该窗口中完成扫码"));
     }
+    Self::build(app, label, title, url, true)
+  }
+
+  /// 打开不可见的后台窗口（用于抓取）；若同名窗口已存在说明已有任务在进行
+  pub fn open_hidden(
+    app: &AppHandle<R>,
+    label: &'static str,
+    title: &str,
+    url: &str,
+  ) -> Result<Self, String> {
+    if app.get_webview_window(label).is_some() {
+      return Err(format!("{title}任务正在进行中，请稍后再试"));
+    }
+    Self::build(app, label, title, url, false)
+  }
+
+  fn build(
+    app: &AppHandle<R>,
+    label: &'static str,
+    title: &str,
+    url: &str,
+    visible: bool,
+  ) -> Result<Self, String> {
     let url = Url::parse(url).map_err(|e| e.to_string())?;
     let win = WebviewWindowBuilder::new(app, label, WebviewUrl::External(url))
       .title(title)
-      .inner_size(1000.0, 760.0)
+      .inner_size(1280.0, 860.0)
       .center()
+      .visible(visible)
       .build()
-      .map_err(|e| format!("无法创建登录窗口: {e}"))?;
+      .map_err(|e| format!("无法创建窗口: {e}"))?;
     Ok(Self { app: app.clone(), label, win })
   }
 
@@ -67,23 +92,28 @@ impl<R: Runtime> LoginWindow<R> {
     map
   }
 
-  /// 在页面中执行一段返回布尔值的同步 JS 表达式；页面未就绪或出错时返回 false
-  pub async fn eval_bool(&self, js: &str) -> bool {
+  /// 在页面中执行一段同步 JS 表达式，返回其 JSON 序列化结果；页面未就绪或超时返回 None
+  pub async fn eval_json(&self, js: &str) -> Option<String> {
     let (tx, rx) = tokio::sync::oneshot::channel::<String>();
     let tx = Mutex::new(Some(tx));
-    let script = format!("(() => {{ try {{ return !!({js}); }} catch (e) {{ return false; }} }})()");
-    let sent = self.win.eval_with_callback(script, move |res| {
-      if let Some(tx) = tx.lock().unwrap().take() {
-        let _ = tx.send(res);
-      }
-    });
-    if sent.is_err() {
-      return false;
-    }
-    matches!(
-      tokio::time::timeout(Duration::from_secs(3), rx).await,
-      Ok(Ok(res)) if res.trim() == "true"
-    )
+    let script = format!("(() => {{ try {{ return ({js}); }} catch (e) {{ return null; }} }})()");
+    self
+      .win
+      .eval_with_callback(script, move |res| {
+        if let Some(tx) = tx.lock().unwrap().take() {
+          let _ = tx.send(res);
+        }
+      })
+      .ok()?;
+    tokio::time::timeout(Duration::from_secs(3), rx).await.ok()?.ok()
+  }
+
+  /// 在页面中执行一段返回布尔值的同步 JS 表达式；页面未就绪或出错时返回 false
+  pub async fn eval_bool(&self, js: &str) -> bool {
+    self
+      .eval_json(&format!("!!({js})"))
+      .await
+      .is_some_and(|res| res.trim() == "true")
   }
 
   pub fn close(&self) {

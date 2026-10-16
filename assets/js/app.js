@@ -10,6 +10,15 @@ function setError(msg) {
   $('errorText').textContent = msg;
 }
 
+// 调用桌面端（Tauri）命令；扫码登录与小红书抓取都依赖内置 WebView，仅桌面端可用
+function tauriInvoke(cmd, args) {
+  const tauri = window.__TAURI__;
+  if (!tauri || !tauri.core) {
+    return Promise.reject(new Error('该功能仅支持在桌面客户端中使用'));
+  }
+  return tauri.core.invoke(cmd, args);
+}
+
 function getApiBase() {
   const c = loadConfig();
   return (c.apiBase || 'http://127.0.0.1:8000').replace(/\/$/, '');
@@ -33,16 +42,23 @@ async function crawlAccount() {
   $('crawlLoadingText').textContent = `正在爬取 ${currentPlatform} 账号「${account}」（前 ${limit} 条）…`;
 
   try {
-    let url = `${apiBase}/api/crawl?platform=${encodeURIComponent(currentPlatform)}&account=${encodeURIComponent(account)}&limit=${limit}`;
-    if (currentPlatform === '微博' && cfg.weiboCookie) {
-      url += `&cookie=${encodeURIComponent(cfg.weiboCookie)}`;
-    } else if (currentPlatform === '小红书' && cfg.xhsCookie) {
-      url += `&cookie=${encodeURIComponent(cfg.xhsCookie)}`;
+    let data;
+    if (currentPlatform === '小红书') {
+      // 小红书在桌面端的内置 WebView 中抓取，复用扫码登录的会话
+      try {
+        data = await tauriInvoke('xhs_crawl', { account, limit });
+      } catch (err) {
+        throw new Error(String(err.message || err));
+      }
+    } else {
+      let url = `${apiBase}/api/crawl?platform=${encodeURIComponent(currentPlatform)}&account=${encodeURIComponent(account)}&limit=${limit}`;
+      if (cfg.weiboCookie) {
+        url += `&cookie=${encodeURIComponent(cfg.weiboCookie)}`;
+      }
+      const resp = await fetch(url);
+      data = await resp.json();
+      if (!resp.ok) throw new Error(data.detail || `HTTP ${resp.status}`);
     }
-
-    const resp = await fetch(url);
-    const data = await resp.json();
-    if (!resp.ok) throw new Error(data.detail || `HTTP ${resp.status}`);
     crawledPosts = data.posts.map(p => ({ ...p, platform: data.platform, account: data.account }));
     show('crawlLoading', false);
     renderPosts();
@@ -130,22 +146,11 @@ if (btnWeibo) {
     statusEl.style.color = '#3b82f6';
     try {
       let data;
-      const tauri = window.__TAURI__;
-      if (tauri && tauri.core) {
-        // 桌面端：使用 Tauri 内置 WebView 窗口扫码，无需外部浏览器
-        try {
-          const cookie = await tauri.core.invoke('weibo_login');
-          data = { ok: true, cookie };
-        } catch (err) {
-          data = { ok: false, message: String(err) };
-        }
-      } else {
-        const apiBase = getApiBase();
-        const resp = await fetch(`${apiBase}/api/weibo/login`, { method: 'POST' });
-        data = await resp.json();
-        if (!resp.ok) {
-          throw new Error(data.detail || data.message || `HTTP ${resp.status}`);
-        }
+      try {
+        const cookie = await tauriInvoke('weibo_login');
+        data = { ok: true, cookie };
+      } catch (err) {
+        data = { ok: false, message: String(err.message || err) };
       }
       if (data.ok && data.cookie) {
         statusEl.textContent = '登录成功！已自动提取并保存最新微博 Cookie。';
@@ -175,25 +180,14 @@ if (btnXhs) {
     statusEl.style.color = '#3b82f6';
     try {
       let data;
-      const tauri = window.__TAURI__;
-      if (tauri && tauri.core) {
-        // 桌面端：使用 Tauri 内置 WebView 窗口扫码，无需外部浏览器
-        try {
-          const cookie = await tauri.core.invoke('xhs_login');
-          data = { ok: true, cookie };
-        } catch (err) {
-          data = { ok: false, message: String(err) };
-        }
-      } else {
-        const apiBase = getApiBase();
-        const resp = await fetch(`${apiBase}/api/xhs/login`, { method: 'POST' });
-        data = await resp.json();
-        if (!resp.ok) {
-          throw new Error(data.detail || data.message || `HTTP ${resp.status}`);
-        }
+      try {
+        const cookie = await tauriInvoke('xhs_login');
+        data = { ok: true, cookie };
+      } catch (err) {
+        data = { ok: false, message: String(err.message || err) };
       }
       if (data.ok) {
-        statusEl.textContent = '登录成功！小红书登录凭证已持久化。';
+        statusEl.textContent = '登录成功！小红书登录态已保存，可直接抓取。';
         statusEl.style.color = '#10b981';
         if (data.cookie) {
           if ($('cfgXhsCookie')) $('cfgXhsCookie').value = data.cookie;

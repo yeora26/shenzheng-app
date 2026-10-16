@@ -65,7 +65,6 @@ def main():
         "--hidden-import", "uvicorn.protocols.http.auto",
         "--hidden-import", "uvicorn.lifespan",
         "--hidden-import", "uvicorn.lifespan.on",
-        "--collect-all", "playwright",
         str(SERVER_MAIN),
     ]
 

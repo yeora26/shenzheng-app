@@ -1,17 +1,7 @@
 from __future__ import annotations
 
-import os
 import sys
 from pathlib import Path
-
-if not os.environ.get("PLAYWRIGHT_BROWSERS_PATH"):
-    home = Path.home()
-    if sys.platform == "darwin":
-        os.environ["PLAYWRIGHT_BROWSERS_PATH"] = str(home / "Library" / "Caches" / "ms-playwright")
-    elif sys.platform == "win32":
-        os.environ["PLAYWRIGHT_BROWSERS_PATH"] = str(home / "AppData" / "Local" / "ms-playwright")
-    else:
-        os.environ["PLAYWRIGHT_BROWSERS_PATH"] = str(home / ".cache" / "ms-playwright")
 
 server_dir = str(Path(__file__).resolve().parent)
 if server_dir not in sys.path:
@@ -22,8 +12,7 @@ from fastapi import FastAPI, HTTPException, Query
 from fastapi.middleware.cors import CORSMiddleware
 
 from models import CrawlResponse
-from weibo import CrawlError as WeiboCrawlError, crawl_weibo, weibo_interactive_login
-from xiaohongshu import CrawlError as XhsCrawlError, crawl_xiaohongshu, interactive_login
+from weibo import CrawlError as WeiboCrawlError, crawl_weibo
 
 app = FastAPI(title='政审分析爬虫接口')
 app.add_middleware(
@@ -36,10 +25,10 @@ app.add_middleware(
 
 @app.get('/api/crawl', response_model=CrawlResponse)
 async def crawl(
-    platform: str = Query(..., description='平台：微博 / 小红书'),
+    platform: str = Query(..., description='平台：微博'),
     account: str = Query(..., min_length=1, description='账号昵称或 ID'),
     limit: int = Query(20, ge=1, le=100, description='抓取条数限制，默认20条'),
-    cookie: str | None = Query(None, description='自定义Cookie（例如微博）'),
+    cookie: str | None = Query(None, description='微博 Cookie'),
 ) -> CrawlResponse:
     if platform == '微博':
         try:
@@ -47,37 +36,8 @@ async def crawl(
         except WeiboCrawlError as e:
             raise HTTPException(status_code=400, detail=str(e)) from e
     if platform == '小红书':
-        try:
-            return await crawl_xiaohongshu(account, limit=limit, cookie=cookie)
-        except XhsCrawlError as e:
-            raise HTTPException(status_code=400, detail=str(e)) from e
-        except Exception as e:
-            raise HTTPException(status_code=500, detail=f"小红书抓取异常: {e}") from e
+        raise HTTPException(status_code=400, detail='小红书抓取已改为在桌面客户端内完成，请使用桌面客户端')
     raise HTTPException(status_code=400, detail=f'不支持的平台：{platform}')
-
-
-@app.post('/api/xhs/login')
-async def xhs_login():
-    """打开浏览器供用户扫码登录小红书，自动保存登录态并返回 Cookie"""
-    try:
-        ok, cookie = await interactive_login()
-        if ok:
-            return {'ok': True, 'cookie': cookie, 'message': '小红书登录成功，登录态已持久化保存'}
-        return {'ok': False, 'message': '未检测到登录成功或登录已超时'}
-    except Exception as e:
-        raise HTTPException(status_code=500, detail=f'启动扫码窗口失败: {e}') from e
-
-
-@app.post('/api/weibo/login')
-async def weibo_login():
-    """打开浏览器供用户扫码登录微博，自动提取并返回 Cookie"""
-    try:
-        cookie = await weibo_interactive_login()
-        if cookie:
-            return {'ok': True, 'cookie': cookie, 'message': '微博登录成功并已自动提取 Cookie'}
-        return {'ok': False, 'message': '未检测到微博登录成功或登录已超时'}
-    except Exception as e:
-        raise HTTPException(status_code=500, detail=f'启动微博扫码窗口失败: {e}') from e
 
 
 if __name__ == '__main__':
