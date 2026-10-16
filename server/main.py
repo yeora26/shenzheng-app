@@ -48,7 +48,7 @@ async def crawl(
             raise HTTPException(status_code=400, detail=str(e)) from e
     if platform == '小红书':
         try:
-            return await crawl_xiaohongshu(account, limit=limit)
+            return await crawl_xiaohongshu(account, limit=limit, cookie=cookie)
         except XhsCrawlError as e:
             raise HTTPException(status_code=400, detail=str(e)) from e
         except Exception as e:
@@ -58,11 +58,11 @@ async def crawl(
 
 @app.post('/api/xhs/login')
 async def xhs_login():
-    """打开浏览器供用户扫码登录小红书，自动保存登录态到本地 profile"""
+    """打开浏览器供用户扫码登录小红书，自动保存登录态并返回 Cookie"""
     try:
-        ok = await interactive_login()
+        ok, cookie = await interactive_login()
         if ok:
-            return {'ok': True, 'message': '小红书登录成功，登录态已持久化保存'}
+            return {'ok': True, 'cookie': cookie, 'message': '小红书登录成功，登录态已持久化保存'}
         return {'ok': False, 'message': '未检测到登录成功或登录已超时'}
     except Exception as e:
         raise HTTPException(status_code=500, detail=f'启动扫码窗口失败: {e}') from e

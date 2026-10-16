@@ -36,6 +36,8 @@ async function crawlAccount() {
     let url = `${apiBase}/api/crawl?platform=${encodeURIComponent(currentPlatform)}&account=${encodeURIComponent(account)}&limit=${limit}`;
     if (currentPlatform === '微博' && cfg.weiboCookie) {
       url += `&cookie=${encodeURIComponent(cfg.weiboCookie)}`;
+    } else if (currentPlatform === '小红书' && cfg.xhsCookie) {
+      url += `&cookie=${encodeURIComponent(cfg.xhsCookie)}`;
     }
 
     const resp = await fetch(url);
@@ -169,6 +171,11 @@ if (btnXhs) {
       if (data.ok) {
         statusEl.textContent = '登录成功！小红书登录凭证已持久化。';
         statusEl.style.color = '#10b981';
+        if (data.cookie) {
+          if ($('cfgXhsCookie')) $('cfgXhsCookie').value = data.cookie;
+          const currentCfg = loadConfig();
+          saveConfig({ ...currentCfg, xhsCookie: data.cookie });
+        }
       } else {
         statusEl.textContent = data.message || '登录超时或未完成';
         statusEl.style.color = '#ef4444';

@@ -6,6 +6,7 @@ const DEFAULT_CONFIG = {
   model: 'deepseek-chat',
   apiBase: 'http://127.0.0.1:8000',
   weiboCookie: '',
+  xhsCookie: '',
   limit: 20,
 };
 
@@ -124,6 +125,7 @@ function openSettings() {
   if ($('cfgLimit')) $('cfgLimit').value = c.limit || 20;
   if ($('cfgApiBase')) $('cfgApiBase').value = c.apiBase || 'http://127.0.0.1:8000';
   if ($('cfgWeiboCookie')) $('cfgWeiboCookie').value = c.weiboCookie || '';
+  if ($('cfgXhsCookie')) $('cfgXhsCookie').value = c.xhsCookie || '';
   show('settingsModal', true);
 }
 
@@ -142,6 +144,7 @@ function bindSettings(onSaved) {
       limit: limit,
       apiBase: $('cfgApiBase') ? $('cfgApiBase').value.trim() : 'http://127.0.0.1:8000',
       weiboCookie: $('cfgWeiboCookie') ? $('cfgWeiboCookie').value.trim() : '',
+      xhsCookie: $('cfgXhsCookie') ? $('cfgXhsCookie').value.trim() : '',
     });
     show('settingsModal', false);
     if (onSaved) onSaved();

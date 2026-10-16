@@ -108,19 +108,20 @@
       <div class="field" style="margin-top: 12px;">
         <div style="display: flex; justify-content: space-between; align-items: center;">
           <span style="font-weight: 500; font-size: 13px; color: var(--text);">微博登录 Cookie</span>
-          <button id="btnWeiboLogin" class="btn secondary small" type="button" style="padding: 2px 8px; font-size: 12px;">扫码登录（自动获取）</button>
+          <button id="btnWeiboLogin" class="btn secondary small" type="button" style="padding: 2px 8px; font-size: 12px;">扫码自动获取</button>
         </div>
-        <input id="cfgWeiboCookie" type="password" placeholder="可点击上方按钮扫码自动提取，也可手动粘贴" autocomplete="off" style="margin-top: 6px;" />
+        <input id="cfgWeiboCookie" type="password" placeholder="可扫码自动提取，也可手动粘贴 Cookie (含 SUB 字段)" autocomplete="off" style="margin-top: 6px;" />
         <span id="weiboLoginStatus" class="hint" style="margin: 2px 0 0 0; font-size: 12px;"></span>
       </div>
       <div class="field" style="margin-top: 12px;">
         <div style="display: flex; justify-content: space-between; align-items: center;">
-          <span style="font-weight: 500; font-size: 13px; color: var(--text);">小红书登录态</span>
-          <button id="btnXhsLogin" class="btn secondary small" type="button" style="padding: 2px 8px; font-size: 12px;">扫码登录 / 更新</button>
+          <span style="font-weight: 500; font-size: 13px; color: var(--text);">小红书登录 Cookie</span>
+          <button id="btnXhsLogin" class="btn secondary small" type="button" style="padding: 2px 8px; font-size: 12px;">扫码自动获取</button>
         </div>
-        <span id="xhsLoginStatus" class="hint" style="margin: 4px 0 0 0; font-size: 12px;">点击后弹出浏览器窗口扫码，自动保存</span>
+        <input id="cfgXhsCookie" type="password" placeholder="可扫码自动提取，也可手动粘贴 Cookie (含 web_session 字段)" autocomplete="off" style="margin-top: 6px;" />
+        <span id="xhsLoginStatus" class="hint" style="margin: 2px 0 0 0; font-size: 12px;"></span>
       </div>
-      <p class="hint" style="margin-top: 14px;">配置均保存在本地，Cookie 过期时随时可一键扫码更新，立即生效。</p>
+      <p class="hint" style="margin-top: 14px;">双重保障：支持全系统动态唤起浏览器扫码自动同步，也支持直接粘贴任意浏览器中的 Cookie。</p>
       <div class="actions">
         <button id="btnSaveSettings" class="btn primary" type="button">保存</button>
       </div>

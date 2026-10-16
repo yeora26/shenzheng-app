@@ -499,8 +499,9 @@ async def crawl_xiaohongshu(
     account: str,
     limit: int = 20,
     headless: bool = True,
+    cookie: str | None = None,
 ) -> CrawlResponse:
-    """提供给 FastAPI 调用的统一接口函数"""
+    """提供给 FastAPI 调用的统一接口函数，支持自定义 Cookie 传参"""
     # 允许通过环境变量覆盖 headless 状态（例如调试时设为 0）
     env_headless = os.getenv("XHS_HEADLESS")
     if env_headless is not None:
@@ -512,6 +513,23 @@ async def crawl_xiaohongshu(
     )
     await scraper.launch()
     try:
+        # 如果用户在前端设置了自定义小红书 Cookie，优先注入该 Cookie
+        if cookie and cookie.strip():
+            cookies_to_add = []
+            for item in cookie.split(";"):
+                if "=" in item:
+                    k, v = item.strip().split("=", 1)
+                    if k and v:
+                        cookies_to_add.append({
+                            "name": k.strip(),
+                            "value": v.strip(),
+                            "domain": ".xiaohongshu.com",
+                            "path": "/",
+                        })
+            if cookies_to_add:
+                await scraper.context.add_cookies(cookies_to_add)
+                LOG.info("已成功注入用户自定义小红书 Cookie，包含 %d 项", len(cookies_to_add))
+
         profile_url = await scraper.resolve_profile_url(account)
         nick, raw_notes = await scraper.scrape_profile(profile_url)
         
@@ -532,12 +550,17 @@ async def crawl_xiaohongshu(
         await scraper.close()
 
 
-async def interactive_login() -> bool:
-    """拉起有头浏览器供用户扫码登录小红书，自动保存登录态"""
+async def interactive_login() -> tuple[bool, str]:
+    """拉起有头浏览器供用户扫码登录小红书，自动保存登录态并提取 Cookie"""
     scraper = XiaohongshuScraper(headless=False)
     await scraper.launch()
     try:
-        return await scraper.login()
+        ok = await scraper.login()
+        cookie_str = ""
+        if ok:
+            cookies = await scraper.context.cookies()
+            cookie_str = "; ".join([f"{c['name']}={c['value']}" for c in cookies if 'xiaohongshu' in c.get('domain', '')])
+        return ok, cookie_str
     finally:
         await scraper.close()
 
