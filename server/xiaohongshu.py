@@ -3,6 +3,7 @@
 小红书 (xiaohongshu.com) 爬虫模块
 基于 Playwright + 反爬特征抹除 + 接口拦截
 """
+from __future__ import annotations
 
 import argparse
 import asyncio
@@ -11,6 +12,7 @@ import logging
 import os
 import random
 import re
+import sys
 from datetime import datetime, timedelta, timezone
 from pathlib import Path
 
@@ -28,9 +30,13 @@ class CrawlError(Exception):
     pass
 
 
-# 默认持久化 Profile 目录（在项目根目录 .xhs_profile）
-ROOT_DIR = Path(__file__).resolve().parent.parent
-DEFAULT_USER_DATA_DIR = str(ROOT_DIR / ".xhs_profile")
+# 默认持久化 Profile 目录（保存在用户主目录 .shenzheng_data/xhs_profile，避免打包后在临时目录丢失）
+def get_default_profile_dir() -> str:
+    profile_dir = Path.home() / ".shenzheng_data" / "xhs_profile"
+    profile_dir.mkdir(parents=True, exist_ok=True)
+    return str(profile_dir)
+
+DEFAULT_USER_DATA_DIR = get_default_profile_dir()
 
 FIXED_UA = (
     "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 "
@@ -268,7 +274,16 @@ class XiaohongshuScraper:
         LOG.info("使用持久化登录 profile: %s", self.user_data_dir)
         
         last_err = None
-        for channel in [None, "msedge", "chrome"]:
+        # 根据当前操作系统动态调整浏览器通道尝试顺序
+        # Windows 上系统 100% 自带 msedge，优先使用它秒开，避免寻找不存在的 chromium 引发异常
+        if sys.platform == "win32":
+            channels = ["msedge", "chrome", None]
+        elif sys.platform == "darwin":
+            channels = ["chrome", "msedge", None]
+        else:
+            channels = [None, "chrome"]
+
+        for channel in channels:
             try:
                 launch_opt = dict(**ctx_kwargs)
                 if channel:
@@ -279,13 +294,18 @@ class XiaohongshuScraper:
                     args=launch_args,
                     **launch_opt,
                 )
+                LOG.info("成功启动浏览器，使用通道: %s", channel or "内置Chromium")
                 break
             except Exception as e:
+                LOG.warning("通道 %s 启动失败: %s", channel or "内置Chromium", e)
                 last_err = e
                 continue
 
         if not self.context:
-            raise CrawlError(f"未能启动小红书浏览器环境: {last_err}。请确认已安装 Chrome 或 Edge 浏览器")
+            raise CrawlError(
+                f"未能启动小红书浏览器环境: {last_err}。"
+                "请确认您的电脑上已安装系统默认的 Microsoft Edge 浏览器或 Google Chrome 浏览器。"
+            )
 
         self.browser = self.context
         pages = self.context.pages

@@ -1,3 +1,5 @@
+from __future__ import annotations
+
 import html
 import os
 import re
@@ -174,18 +176,30 @@ async def weibo_interactive_login() -> str:
 
     async with async_playwright() as p:
         browser = None
-        for channel in [None, 'chrome', 'msedge']:
+        if sys.platform == "win32":
+            channels = ["msedge", "chrome", None]
+        elif sys.platform == "darwin":
+            channels = ["chrome", "msedge", None]
+        else:
+            channels = [None, "chrome"]
+
+        last_err = None
+        for channel in channels:
             try:
                 if channel:
                     browser = await p.chromium.launch(headless=False, channel=channel)
                 else:
                     browser = await p.chromium.launch(headless=False)
                 break
-            except Exception:
+            except Exception as e:
+                last_err = e
                 continue
 
         if not browser:
-            raise CrawlError('未能启动浏览器，请确认已安装 Chrome 浏览器或运行过 playwright install chromium')
+            raise CrawlError(
+                f"未能拉起微博扫码浏览器窗口: {last_err}。"
+                "请确认您的电脑上已安装系统默认的 Microsoft Edge 浏览器或 Google Chrome 浏览器。"
+            )
 
         context = await browser.new_context(
             user_agent=(
