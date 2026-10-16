@@ -266,12 +266,27 @@ class XiaohongshuScraper:
 
         os.makedirs(self.user_data_dir, exist_ok=True)
         LOG.info("使用持久化登录 profile: %s", self.user_data_dir)
-        self.context = await self._pw.chromium.launch_persistent_context(
-            user_data_dir=self.user_data_dir,
-            headless=self.headless,
-            args=launch_args,
-            **ctx_kwargs,
-        )
+        
+        last_err = None
+        for channel in [None, "msedge", "chrome"]:
+            try:
+                launch_opt = dict(**ctx_kwargs)
+                if channel:
+                    launch_opt["channel"] = channel
+                self.context = await self._pw.chromium.launch_persistent_context(
+                    user_data_dir=self.user_data_dir,
+                    headless=self.headless,
+                    args=launch_args,
+                    **launch_opt,
+                )
+                break
+            except Exception as e:
+                last_err = e
+                continue
+
+        if not self.context:
+            raise CrawlError(f"未能启动小红书浏览器环境: {last_err}。请确认已安装 Chrome 或 Edge 浏览器")
+
         self.browser = self.context
         pages = self.context.pages
         self.page = pages[0] if pages else await self.context.new_page()
