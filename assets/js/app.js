@@ -129,11 +129,23 @@ if (btnWeibo) {
     statusEl.textContent = '已弹出微博扫码窗口，请使用微博 App 扫码并在手机上点击确认。登录成功后窗口将自动关闭，请勿手动关闭窗口...';
     statusEl.style.color = '#3b82f6';
     try {
-      const apiBase = getApiBase();
-      const resp = await fetch(`${apiBase}/api/weibo/login`, { method: 'POST' });
-      const data = await resp.json();
-      if (!resp.ok) {
-        throw new Error(data.detail || data.message || `HTTP ${resp.status}`);
+      let data;
+      const tauri = window.__TAURI__;
+      if (tauri && tauri.core) {
+        // 桌面端：使用 Tauri 内置 WebView 窗口扫码，无需外部浏览器
+        try {
+          const cookie = await tauri.core.invoke('weibo_login');
+          data = { ok: true, cookie };
+        } catch (err) {
+          data = { ok: false, message: String(err) };
+        }
+      } else {
+        const apiBase = getApiBase();
+        const resp = await fetch(`${apiBase}/api/weibo/login`, { method: 'POST' });
+        data = await resp.json();
+        if (!resp.ok) {
+          throw new Error(data.detail || data.message || `HTTP ${resp.status}`);
+        }
       }
       if (data.ok && data.cookie) {
         statusEl.textContent = '登录成功！已自动提取并保存最新微博 Cookie。';
@@ -162,11 +174,23 @@ if (btnXhs) {
     statusEl.textContent = '已弹出小红书扫码窗口，请使用小红书 App 扫码并在手机上点击确认。登录成功后窗口将自动关闭，请勿手动关闭窗口...';
     statusEl.style.color = '#3b82f6';
     try {
-      const apiBase = getApiBase();
-      const resp = await fetch(`${apiBase}/api/xhs/login`, { method: 'POST' });
-      const data = await resp.json();
-      if (!resp.ok) {
-        throw new Error(data.detail || data.message || `HTTP ${resp.status}`);
+      let data;
+      const tauri = window.__TAURI__;
+      if (tauri && tauri.core) {
+        // 桌面端：使用 Tauri 内置 WebView 窗口扫码，无需外部浏览器
+        try {
+          const cookie = await tauri.core.invoke('xhs_login');
+          data = { ok: true, cookie };
+        } catch (err) {
+          data = { ok: false, message: String(err) };
+        }
+      } else {
+        const apiBase = getApiBase();
+        const resp = await fetch(`${apiBase}/api/xhs/login`, { method: 'POST' });
+        data = await resp.json();
+        if (!resp.ok) {
+          throw new Error(data.detail || data.message || `HTTP ${resp.status}`);
+        }
       }
       if (data.ok) {
         statusEl.textContent = '登录成功！小红书登录凭证已持久化。';
