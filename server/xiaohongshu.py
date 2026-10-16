@@ -20,8 +20,10 @@ from playwright.async_api import async_playwright, TimeoutError as PWTimeoutErro
 
 try:
     from models import CrawlResponse, Post
+    from browser_helper import launch_resilient_context
 except ImportError:
     from server.models import CrawlResponse, Post
+    from server.browser_helper import launch_resilient_context
 
 LOG = logging.getLogger("xhs")
 
@@ -271,41 +273,16 @@ class XiaohongshuScraper:
         )
 
         os.makedirs(self.user_data_dir, exist_ok=True)
-        LOG.info("使用持久化登录 profile: %s", self.user_data_dir)
-        
-        last_err = None
-        # 根据当前操作系统动态调整浏览器通道尝试顺序
-        # Windows 上系统 100% 自带 msedge，优先使用它秒开，避免寻找不存在的 chromium 引发异常
-        if sys.platform == "win32":
-            channels = ["msedge", "chrome", None]
-        elif sys.platform == "darwin":
-            channels = ["chrome", "msedge", None]
-        else:
-            channels = [None, "chrome"]
-
-        for channel in channels:
-            try:
-                launch_opt = dict(**ctx_kwargs)
-                if channel:
-                    launch_opt["channel"] = channel
-                self.context = await self._pw.chromium.launch_persistent_context(
-                    user_data_dir=self.user_data_dir,
-                    headless=self.headless,
-                    args=launch_args,
-                    **launch_opt,
-                )
-                LOG.info("成功启动浏览器，使用通道: %s", channel or "内置Chromium")
-                break
-            except Exception as e:
-                LOG.warning("通道 %s 启动失败: %s", channel or "内置Chromium", e)
-                last_err = e
-                continue
-
-        if not self.context:
-            raise CrawlError(
-                f"未能启动小红书浏览器环境: {last_err}。"
-                "请确认您的电脑上已安装系统默认的 Microsoft Edge 浏览器或 Google Chrome 浏览器。"
+        try:
+            self.context = await launch_resilient_context(
+                pw=self._pw,
+                headless=self.headless,
+                user_data_dir=self.user_data_dir,
+                extra_args=launch_args,
+                **ctx_kwargs,
             )
+        except Exception as e:
+            raise CrawlError(f"未能启动小红书浏览器环境: {e}")
 
         self.browser = self.context
         pages = self.context.pages
@@ -321,31 +298,80 @@ class XiaohongshuScraper:
                 await self._pw.stop()
 
     async def _is_logged_in(self) -> bool:
+        # 核心判断标准：检查 Cookie 中是否存在有效的 web_session 凭据
         try:
-            html = await self.page.content()
+            cookies = await self.context.cookies()
+            for c in cookies:
+                if c.get("name") == "web_session" and len(c.get("value", "")) > 10:
+                    return True
         except Exception:
-            return False
-        return not (("扫码登录" in html) or ("登录后查看更多内容" in html) or ("手机号登录" in html))
+            pass
+
+        # 辅助判断：检测是否有个人中心头像或个人主页链接
+        try:
+            avatar_count = await self.page.locator(".avatar-wrapper, .user-avatar, img.avatar, [class*='avatar']").count()
+            if avatar_count > 0:
+                mask_count = await self.page.locator(".login-container, .qrcode-box, [class*='login-box']").count()
+                if mask_count == 0:
+                    return True
+        except Exception:
+            pass
+        return False
 
     async def login(self) -> bool:
         await self._safe_goto(BASE + "/explore")
-        await self._random_delay(1.5, 3.0)
+        await self._random_delay(1.0, 2.0)
         if await self._is_logged_in():
             LOG.info("检测到已登录，无需重复登录")
             return True
+
+        # 如果未登录且页面未自动弹出登录二维码，主动寻找并点击登录按钮
+        try:
+            login_btn = self.page.locator("button:has-text('登录'), a:has-text('登录'), div:has-text('登录')").first
+            if await login_btn.is_visible(timeout=2000):
+                await login_btn.click()
+        except Exception:
+            pass
+
         LOG.info("请在弹出的浏览器中扫码或输入手机号登录小红书...")
         waited = 0
+        last_logged = False
         while waited < 300:
-            await asyncio.sleep(3)
-            waited += 3
+            await asyncio.sleep(1.5)
+            waited += 1.5
             try:
                 if await self._is_logged_in():
-                    LOG.info("检测到登录成功！")
+                    last_logged = True
+                    LOG.info("检测到小红书登录成功！正在保存登录态并自动关闭窗口...")
+                    try:
+                        await self.page.evaluate("""() => {
+                            const tip = document.createElement('div');
+                            tip.innerText = '小红书登录成功！凭证保存中，窗口即将自动关闭...';
+                            tip.style.position = 'fixed';
+                            tip.style.top = '24px';
+                            tip.style.left = '50%';
+                            tip.style.transform = 'translateX(-50%)';
+                            tip.style.backgroundColor = '#10b981';
+                            tip.style.color = '#ffffff';
+                            tip.style.padding = '12px 28px';
+                            tip.style.fontSize = '18px';
+                            tip.style.fontWeight = 'bold';
+                            tip.style.borderRadius = '8px';
+                            tip.style.boxShadow = '0 6px 20px rgba(0,0,0,0.2)';
+                            tip.style.zIndex = '9999999';
+                            document.body.appendChild(tip);
+                        }""")
+                    except Exception:
+                        pass
+                    await asyncio.sleep(1.5)
                     return True
             except Exception:
-                pass
-        LOG.warning("等待登录超时")
-        return False
+                # 若用户在登录成功后关闭了浏览器
+                if last_logged:
+                    return True
+                break
+        LOG.warning("等待登录超时或窗口被关闭")
+        return last_logged
 
     @staticmethod
     def _looks_like_profile_url(text: str) -> bool:
@@ -356,11 +382,15 @@ class XiaohongshuScraper:
         return bool(re.fullmatch(r"[0-9a-fA-F]{24}", text.strip()))
 
     async def _has_login_wall(self) -> bool:
-        try:
-            html = await self.page.content()
-        except Exception:
+        if await self._is_logged_in():
             return False
-        return ("扫码登录" in html) or ("登录后查看更多内容" in html) or ("手机号登录" in html)
+        try:
+            wall = await self.page.locator(".login-container, .qrcode-box, [class*='login-modal']").first.is_visible(timeout=1000)
+            if wall:
+                return True
+        except Exception:
+            pass
+        return False
 
     async def _grab_user_link(self, keyword: str) -> str | None:
         links = await self.page.eval_on_selector_all(

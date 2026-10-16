@@ -123,12 +123,16 @@ const btnWeibo = $('btnWeiboLogin');
 if (btnWeibo) {
   btnWeibo.addEventListener('click', async () => {
     const statusEl = $('weiboLoginStatus');
-    statusEl.textContent = '正在启动微博扫码窗口，请在弹出的浏览器中扫码登录...';
+    btnWeibo.disabled = true;
+    statusEl.textContent = '已弹出微博扫码窗口，请使用微博 App 扫码并在手机上点击确认。登录成功后窗口将自动关闭，请勿手动关闭窗口...';
     statusEl.style.color = '#3b82f6';
     try {
       const apiBase = getApiBase();
       const resp = await fetch(`${apiBase}/api/weibo/login`, { method: 'POST' });
       const data = await resp.json();
+      if (!resp.ok) {
+        throw new Error(data.detail || data.message || `HTTP ${resp.status}`);
+      }
       if (data.ok && data.cookie) {
         statusEl.textContent = '登录成功！已自动提取并保存最新微博 Cookie。';
         statusEl.style.color = '#10b981';
@@ -142,6 +146,8 @@ if (btnWeibo) {
     } catch (e) {
       statusEl.textContent = `启动失败：${e.message}`;
       statusEl.style.color = '#ef4444';
+    } finally {
+      btnWeibo.disabled = false;
     }
   });
 }
@@ -150,12 +156,16 @@ const btnXhs = $('btnXhsLogin');
 if (btnXhs) {
   btnXhs.addEventListener('click', async () => {
     const statusEl = $('xhsLoginStatus');
-    statusEl.textContent = '正在启动扫码窗口，请在弹出的浏览器中扫码...';
+    btnXhs.disabled = true;
+    statusEl.textContent = '已弹出小红书扫码窗口，请使用小红书 App 扫码并在手机上点击确认。登录成功后窗口将自动关闭，请勿手动关闭窗口...';
     statusEl.style.color = '#3b82f6';
     try {
       const apiBase = getApiBase();
       const resp = await fetch(`${apiBase}/api/xhs/login`, { method: 'POST' });
       const data = await resp.json();
+      if (!resp.ok) {
+        throw new Error(data.detail || data.message || `HTTP ${resp.status}`);
+      }
       if (data.ok) {
         statusEl.textContent = '登录成功！小红书登录凭证已持久化。';
         statusEl.style.color = '#10b981';
@@ -166,6 +176,8 @@ if (btnXhs) {
     } catch (e) {
       statusEl.textContent = `扫码启动失败：${e.message}`;
       statusEl.style.color = '#ef4444';
+    } finally {
+      btnXhs.disabled = false;
     }
   });
 }
